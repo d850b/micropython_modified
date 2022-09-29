@@ -1,5 +1,37 @@
 [![CI badge](https://github.com/micropython/micropython/workflows/unix%20port/badge.svg)](https://github.com/micropython/micropython/actions?query=branch%3Amaster+event%3Apush) [![codecov](https://codecov.io/gh/micropython/micropython/branch/master/graph/badge.svg?token=I92PfD05sD)](https://codecov.io/gh/micropython/micropython)
 
+Whats modified here?
+====================
+
+I added a build target for esp8266 with 1M (Sonoff S26) that contains uasyncio. (Yes, it fits)
+
+Addendum to build instructions: 
+
+For the ESP8266 port it says:
+
+SNIP
+
+Then to compile the ESP8266 firmware:
+
+```
+$ cd ports/esp8266
+$ docker run --rm -v $HOME:$HOME -u $UID -w $PWD larsks/esp-open-sdk make -j BOARD=GENERIC
+```
+SNIP
+
+I found that with the "-j" option (parallelize build), the creation of 'firmware-combined.bin' fails mysteriously on rebuilds - the file is not renewed. Even not after build clean (rm-rf'ing the output). WTF is going on??
+
+So, better use 
+```
+$ cd ports/esp8266
+$ docker run --rm -v $HOME:$HOME -u $UID -w $PWD larsks/esp-open-sdk make BOARD=GENERIC
+```
+It takes a little longer, but works.
+
+---
+---
+
+
 The MicroPython project
 =======================
 <p align="center">

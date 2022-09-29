@@ -66,6 +66,8 @@ the local toolchain instead.
 
 Then to compile the ESP8266 firmware:
 
+(SEE ADDENDUM IN THE ROOT OF REPO, OMIT -j OPTION! )
+
 ```
 $ cd ports/esp8266
 $ docker run --rm -v $HOME:$HOME -u $UID -w $PWD larsks/esp-open-sdk make -j BOARD=GENERIC
