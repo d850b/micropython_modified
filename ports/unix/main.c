@@ -43,6 +43,7 @@
 #include "py/builtin.h"
 #include "py/repl.h"
 #include "py/gc.h"
+#include "py/objstr.h"
 #include "py/stackctrl.h"
 #include "py/mphal.h"
 #include "py/mpthread.h"
@@ -413,7 +414,7 @@ STATIC void pre_process_options(int argc, char **argv) {
                     #if MICROPY_PY_THREAD
                     mp_thread_is_realtime_enabled = true;
                     #endif
-                    // main thread was already intialized before the option
+                    // main thread was already initialized before the option
                     // was parsed, so we have to enable realtime here.
                     mp_thread_set_realtime();
                 #endif
@@ -434,6 +435,17 @@ STATIC void set_sys_argv(char *argv[], int argc, int start_arg) {
         mp_obj_list_append(mp_sys_argv, MP_OBJ_NEW_QSTR(qstr_from_str(argv[i])));
     }
 }
+
+#if MICROPY_PY_SYS_EXECUTABLE
+extern mp_obj_str_t mp_sys_executable_obj;
+STATIC char executable_path[MICROPY_ALLOC_PATH_MAX];
+
+STATIC void sys_set_excecutable(char *argv0) {
+    if (realpath(argv0, executable_path)) {
+        mp_obj_str_set_data(&mp_sys_executable_obj, (byte *)executable_path, strlen(executable_path));
+    }
+}
+#endif
 
 #ifdef _WIN32
 #define PATHLIST_SEP_CHAR ';'
@@ -598,6 +610,10 @@ MP_NOINLINE int main_(int argc, char **argv) {
     printf("    peak  %d\n", m_get_peak_bytes_allocated());
     */
 
+    #if MICROPY_PY_SYS_EXECUTABLE
+    sys_set_excecutable(argv[0]);
+    #endif
+
     const int NOTHING_EXECUTED = -2;
     int ret = NOTHING_EXECUTED;
     bool inspect = false;
@@ -683,6 +699,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
             char *basedir = realpath(argv[a], pathbuf);
             if (basedir == NULL) {
                 mp_printf(&mp_stderr_print, "%s: can't open file '%s': [Errno %d] %s\n", argv[0], argv[a], errno, strerror(errno));
+                free(pathbuf);
                 // CPython exits with 2 in such case
                 ret = 2;
                 break;

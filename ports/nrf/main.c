@@ -156,7 +156,7 @@ soft_reset:
     rtc_init0();
     #endif
 
-    #if MICROPY_PY_MACHINE_TIMER
+    #if MICROPY_PY_MACHINE_TIMER_NRF
     timer_init0();
     #endif
 
@@ -170,7 +170,7 @@ soft_reset:
             MP_OBJ_NEW_SMALL_INT(0),
             MP_OBJ_NEW_SMALL_INT(115200),
         };
-        MP_STATE_PORT(board_stdio_uart) = MP_OBJ_TYPE_GET_SLOT(&machine_hard_uart_type, make_new)((mp_obj_t)&machine_hard_uart_type, MP_ARRAY_SIZE(args), 0, args);
+        MP_STATE_PORT(board_stdio_uart) = MP_OBJ_TYPE_GET_SLOT(&machine_uart_type, make_new)((mp_obj_t)&machine_uart_type, MP_ARRAY_SIZE(args), 0, args);
     }
     #endif
 
@@ -184,7 +184,7 @@ soft_reset:
     int ret = mp_vfs_mount_and_chdir_protected((mp_obj_t)&nrf_flash_obj, mount_point);
 
     if ((ret == -MP_ENODEV) || (ret == -MP_EIO)) {
-        pyexec_frozen_module("_mkfs.py"); // Frozen script for formatting flash filesystem.
+        pyexec_frozen_module("_mkfs.py", false); // Frozen script for formatting flash filesystem.
         ret = mp_vfs_mount_and_chdir_protected((mp_obj_t)&nrf_flash_obj, mount_point);
     }
 
@@ -279,6 +279,10 @@ soft_reset:
             }
         }
     }
+
+    #if MICROPY_PY_MACHINE_HW_PWM
+    pwm_deinit_all();
+    #endif
 
     mp_deinit();
 

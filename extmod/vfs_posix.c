@@ -37,9 +37,11 @@
 #error "MICROPY_VFS_POSIX requires MICROPY_ENABLE_FINALISER"
 #endif
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <dirent.h>
 #ifdef _MSC_VER
 #include <direct.h> // For mkdir etc.
@@ -190,7 +192,7 @@ STATIC mp_obj_t vfs_posix_ilistdir_it_iternext(mp_obj_t self_in) {
         MP_THREAD_GIL_ENTER();
         const char *fn = dirent->d_name;
 
-        if (fn[0] == '.' && (fn[1] == 0 || fn[1] == '.')) {
+        if (fn[0] == '.' && (fn[1] == 0 || (fn[1] == '.' && fn[2] == 0))) {
             // skip . and ..
             continue;
         }

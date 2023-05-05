@@ -29,12 +29,23 @@ function ci_code_formatting_run {
 }
 
 ########################################################################################
+# code spelling
+
+function ci_code_spell_setup {
+    pip3 install codespell tomli
+}
+
+function ci_code_spell_run {
+    codespell
+}
+
+########################################################################################
 # commit formatting
 
 function ci_commit_formatting_run {
     git remote add upstream https://github.com/micropython/micropython.git
     git fetch --depth=100 upstream  master
-    # For a PR, upstream/master..HEAD ends with a merge commit into master, exlude that one.
+    # For a PR, upstream/master..HEAD ends with a merge commit into master, exclude that one.
     tools/verifygitlog.py -v upstream/master..HEAD --no-merges
 }
 
@@ -49,6 +60,10 @@ function ci_code_size_setup {
 }
 
 function ci_code_size_build {
+    # check the following ports for the change in their code size
+    PORTS_TO_CHECK=bmusp
+    SUBMODULES="lib/berkeley-db-1.xx lib/mbedtls lib/micropython-lib lib/pico-sdk lib/stm32lib lib/tinyusb"
+
     # starts off at either the ref/pull/N/merge FETCH_HEAD, or the current branch HEAD
     git checkout -b pull_request # save the current location
     git remote add upstream https://github.com/micropython/micropython.git
@@ -56,14 +71,16 @@ function ci_code_size_build {
     # build reference, save to size0
     # ignore any errors with this build, in case master is failing
     git checkout `git merge-base --fork-point upstream/master pull_request`
+    git submodule update --init $SUBMODULES
     git show -s
-    tools/metrics.py clean bm
-    tools/metrics.py build bm | tee ~/size0 || true
+    tools/metrics.py clean $PORTS_TO_CHECK
+    tools/metrics.py build $PORTS_TO_CHECK | tee ~/size0 || true
     # build PR/branch, save to size1
     git checkout pull_request
+    git submodule update --init $SUBMODULES
     git log upstream/master..HEAD
-    tools/metrics.py clean bm
-    tools/metrics.py build bm | tee ~/size1
+    tools/metrics.py clean $PORTS_TO_CHECK
+    tools/metrics.py build $PORTS_TO_CHECK | tee ~/size1
 }
 
 ########################################################################################
@@ -198,8 +215,9 @@ function ci_mimxrt_setup {
 
 function ci_mimxrt_build {
     make ${MAKEOPTS} -C mpy-cross
-    make ${MAKEOPTS} -C ports/mimxrt submodules
+    make ${MAKEOPTS} -C ports/mimxrt BOARD=MIMXRT1020_EVK submodules
     make ${MAKEOPTS} -C ports/mimxrt BOARD=MIMXRT1020_EVK
+    make ${MAKEOPTS} -C ports/mimxrt BOARD=TEENSY40 submodules
     make ${MAKEOPTS} -C ports/mimxrt BOARD=TEENSY40
 }
 
@@ -265,7 +283,10 @@ function ci_renesas_ra_board_build {
     make ${MAKEOPTS} -C mpy-cross
     make ${MAKEOPTS} -C ports/renesas-ra submodules
     make ${MAKEOPTS} -C ports/renesas-ra BOARD=RA4M1_CLICKER
-    make ${MAKEOPTS} -C ports/renesas-ra BOARD=RA6M2_EK
+    make ${MAKEOPTS} -C ports/renesas-ra BOARD=EK_RA6M2
+    make ${MAKEOPTS} -C ports/renesas-ra BOARD=EK_RA6M1
+    make ${MAKEOPTS} -C ports/renesas-ra BOARD=EK_RA4M1
+    make ${MAKEOPTS} -C ports/renesas-ra BOARD=EK_RA4W1
 }
 
 ########################################################################################
@@ -283,6 +304,10 @@ function ci_rp2_build {
     make ${MAKEOPTS} -C ports/rp2 USER_C_MODULES=../../examples/usercmodule/micropython.cmake
     make ${MAKEOPTS} -C ports/rp2 BOARD=W5100S_EVB_PICO submodules
     make ${MAKEOPTS} -C ports/rp2 BOARD=W5100S_EVB_PICO
+
+    # Test building ninaw10 driver and NIC interface.
+    make ${MAKEOPTS} -C ports/rp2 BOARD=ARDUINO_NANO_RP2040_CONNECT submodules
+    make ${MAKEOPTS} -C ports/rp2 BOARD=ARDUINO_NANO_RP2040_CONNECT
 }
 
 ########################################################################################
@@ -295,7 +320,8 @@ function ci_samd_setup {
 function ci_samd_build {
     make ${MAKEOPTS} -C mpy-cross
     make ${MAKEOPTS} -C ports/samd submodules
-    make ${MAKEOPTS} -C ports/samd
+    make ${MAKEOPTS} -C ports/samd BOARD=ADAFRUIT_ITSYBITSY_M0_EXPRESS
+    make ${MAKEOPTS} -C ports/samd BOARD=ADAFRUIT_ITSYBITSY_M4_EXPRESS
 }
 
 ########################################################################################
@@ -310,6 +336,7 @@ function ci_stm32_setup {
 function ci_stm32_pyb_build {
     make ${MAKEOPTS} -C mpy-cross
     make ${MAKEOPTS} -C ports/stm32 MICROPY_PY_NETWORK_WIZNET5K=5200 submodules
+    make ${MAKEOPTS} -C ports/stm32 BOARD=PYBD_SF2 submodules
     git submodule update --init lib/btstack
     git submodule update --init lib/mynewt-nimble
     make ${MAKEOPTS} -C ports/stm32 BOARD=PYBV11 MICROPY_PY_NETWORK_WIZNET5K=5200 USER_C_MODULES=../../examples/usercmodule
@@ -326,7 +353,7 @@ function ci_stm32_pyb_build {
 
 function ci_stm32_nucleo_build {
     make ${MAKEOPTS} -C mpy-cross
-    make ${MAKEOPTS} -C ports/stm32 submodules
+    make ${MAKEOPTS} -C ports/stm32 BOARD=NUCLEO_H743ZI submodules
     git submodule update --init lib/mynewt-nimble
 
     # Test building various MCU families, some with additional options.
@@ -506,7 +533,6 @@ function ci_unix_32bit_setup {
     sudo pip3 install setuptools
     sudo pip3 install pyelftools
     gcc --version
-    python2 --version
     python3 --version
 }
 
@@ -589,6 +615,9 @@ function ci_unix_settrace_stackless_run_tests {
 }
 
 function ci_unix_macos_build {
+    # Install pkg-config to configure libffi paths.
+    brew install pkg-config
+
     make ${MAKEOPTS} -C mpy-cross
     make ${MAKEOPTS} -C ports/unix submodules
     #make ${MAKEOPTS} -C ports/unix deplibs
@@ -685,7 +714,6 @@ function ci_zephyr_install {
 
 function ci_zephyr_build {
     docker exec zephyr-ci west build -p auto -b qemu_x86 -- -DCONF_FILE=prj_minimal.conf
-    docker exec zephyr-ci west build -p auto -b qemu_x86
     docker exec zephyr-ci west build -p auto -b frdm_k64f
     docker exec zephyr-ci west build -p auto -b mimxrt1050_evk
     docker exec zephyr-ci west build -p auto -b nucleo_wb55rg # for bluetooth
